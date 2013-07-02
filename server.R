@@ -62,8 +62,8 @@ ngramTable <- function(query, user) {
 shinyServer(function(input, output) {
   
   # View count
-  viewCount <- as.numeric(read.table("viewFile.txt", header=FALSE)[1, 1]) + 1
-  write(viewCount, file = "viewFile.txt")
+  viewCount <- as.numeric(read.table("hits.txt", header=FALSE)[1, 1]) + 1
+  write(viewCount, file = "hits.txt")
   
   #Output for hits
   output$hits <- renderText({
