@@ -5,7 +5,7 @@
 #    need to make them adopt a same structure
 #    refer to https://dev.twitter.com/docs/platform-objects/tweets
 
-source("utilities.R")
+source("utils/utilities.R")
 
 GetTweetsBySearch <- function(term, n = 1500) {
   # Get tweets by searching Twitter API

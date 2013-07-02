@@ -1,4 +1,4 @@
-source('./utilities.R')
+source('utils/utilities.R')
 
 EnsurePackage("stringr")
 
@@ -34,7 +34,25 @@ ExtractUrls <- function(df) {
   # extracts links (quick and dirty)
   # wish to have something like http://daringfireball.net/2009/11/liberal_regex_for_matching_urls
   df$links <- sapply(df$text,function(tweet) str_extract(tweet,("http[^[:blank:]]+")))
-  df$text <- sapply(df$text, function(x) TrimUrls(x))
+  df$links <- sub("â\u0080", "", df$links)
+  df$links <- sub("¦", "", df$links)
+  df$links <- sub("\u009d", "", df$links)
+  df$links <- sub("\\.{3}", "", df$links)
+  df$links[nchar(df$links) < 20] <- NA
+  
+  # unshorten links, and get titles of links
+  #   df$longlinks <- sapply(df$links, function(l) UnshortenURL(l))
+  #   df$linkTitle <- sapply(df$longlinks, GetTitleOfURL(l))
+### commented out because longurl api is not working right now...
+#   longlinks <- unlist(lapply(df$links, function(l) UnshortenURL2(l)))
+#   while(length(longlinks) != 2 * length(df$links)) {
+#     longlinks <- unlist(lapply(df$links, function(l) UnshortenURL2(l)))
+#   }
+#   df$longlinks <- longlinks[seq(1, length(longlinks), 2)]
+#   df$linkTitle <- longlinks[seq(2, length(longlinks), 2)]
+  
+  # get a copy of text without urls for semantic analysis
+  df$text_nourl <- sapply(df$text, function(x) TrimUrls(x))
   
   return(df)
 }

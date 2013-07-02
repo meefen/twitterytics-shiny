@@ -1,3 +1,4 @@
+source("utils/utilities.R")
 
 CreateSNADataFrame <- function(df, from, to, linkNames) {
   # Create SNA data frame

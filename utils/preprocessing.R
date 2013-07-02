@@ -3,27 +3,24 @@
 #  those weight-lefting tasks in advance, and save processed
 #  data in advance.
 
-source("utilities.R", local=TRUE)
-source("get_tweets.R")
-source("munge_tweets.R")
-source("semantic_analysis.R")
-source("social_analysis.R")
+source("utils/utilities.R", local=TRUE)
+source("utils/get_tweets.R")
+source("utils/munge_tweets.R")
+source("utils/semantic_analysis.R")
+source("utils/social_analysis.R")
 
 # get tweets
-df <- GetTweetsFromGoogleDrive("0Aup6zwZoYbZ1dFdMamNnMlNDdGFsSFB3QmhOUDd4dVE")
+key <- read.table("settings.txt", header=FALSE)[2, 1]
+df <- GetTweetsFromGoogleDrive(key)
 # remove duplicates
 df <- df[!duplicated(df$id_str), ]
 # # only select tweets during conference
 # start <- strptime("10/04/2013 00:00:01", "%d/%m/%Y %H:%M:%S")
 # df <- df[(df$created_at > start), ]
-
 df <- PreprocessTweets(df)
-save(df, file="data/aera13.Rda")
-write.csv(df, file="data/aera13.csv")
 
 # wordcloud
-corpus <- ConstructCorpus(df$text, removeTags=TRUE, removeUsers=TRUE)
-save(corpus, file="data/corpus.Rda")
+corpus <- ConstructCorpus(df$text_nourl, removeTags=TRUE, removeUsers=TRUE)
 # png('data/cloud.png')
 # cloud <- MakeWordCloud(corpus)
 # dev.off()
@@ -37,10 +34,9 @@ save(corpus, file="data/corpus.Rda")
 # dropbox_acc_info(dropbox_credentials)
 
 # sentiments
-sentiments <- ScoreSentiment(df$text, .progress="text")
+sentiments <- ScoreSentiment(df$text_nourl, .progress="text")
 sentiments$from_user <- df$from_user
 sentiments <- sentiments[with(sentiments, order(-score)), ]
-save(sentiments, file="data/sentiments.Rda")
 
 # sna
 EnsurePackage("igraph")
@@ -51,11 +47,17 @@ rp.df <- CreateSNADataFrame(df, from="from_user", to="reply_to", linkNames="rp")
 sna.df <- rbind(rt.df, rp.df)
 # create graph data frame (igraph)
 g <- graph.data.frame(sna.df, directed=TRUE)
-save(g, file="data/snaGraph.Rda")
 mat <- get.adjacency(g)
 # convert to csr matrix provided by SparseM ref:
 # http://cos.name/cn/topic/108758
 mat.csr <- as.matrix.csr(mat, ncol=ncol(mat))
-save(mat.csr, file="data/snaMatrix.Rda")
 g.wc <- walktrap.community(g, steps=1000, modularity=TRUE)
+
+## save data
+save(df, file="data/df.Rda")
+write.csv(df, file="data/df.csv")
+save(corpus, file="data/corpus.Rda")
+save(sentiments, file="data/sentiments.Rda")
+save(g, file="data/snaGraph.Rda")
+save(mat.csr, file="data/snaMatrix.Rda")
 save(g.wc, file="data/communities.Rda")

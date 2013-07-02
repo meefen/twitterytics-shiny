@@ -1,5 +1,4 @@
-
-source("utilities.R")
+source("utils/utilities.R")
 
 ConstructCorpus <- function(textVec, 
                             toLower = TRUE, 
@@ -21,11 +20,9 @@ ConstructCorpus <- function(textVec,
   if(toLower) corpus <- tm_map(corpus, tolower)
   
   if(removeTags) {
-    source("utilities.R")
     corpus <- tm_map(corpus, TrimHashtags)
   }
   if(removeUsers) {
-    source("utilities.R")
     corpus <- tm_map(corpus, TrimUsers)
   }
   
