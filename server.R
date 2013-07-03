@@ -22,6 +22,7 @@ load("data/urls.Rda")
 
 ## read settings
 settings <- read.table("settings.txt", header=FALSE)
+timezone <- settings[3, 1]
 
 ## function for preparing ngram table
 ngramTable <- function(query, user) {
@@ -83,7 +84,7 @@ shinyServer(function(input, output) {
   output$tweets_timeline <- renderPlot({
     
     # Depending on the place of venue, change the timezone
-    dates <- format(as.POSIXct(df$created_at, tz="GMT"), tz="America/Chicago")
+    dates <- format(as.POSIXct(df$created_at, tz="GMT"), tz=timezone)
     
     # trim dates to only keep date
     date.df <- data.frame(date=as.POSIXct(strftime(dates, "%Y-%m-%d")))

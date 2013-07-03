@@ -18,7 +18,7 @@ shinyUI(pageWithSidebar(
       helpText("To explore this dataset, choose analytics below."),
       br(),
       HTML(paste(textOutput("hits"), 
-                 "by: <a href='http://bodongchen.com/' target='_blank'>Bodong Chen</a>)"))
+                 "by: <a href='http://bodongchen.com/' target='_blank'>Bodong Chen</a>"))
       ),
     
     wellPanel(
