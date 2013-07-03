@@ -94,7 +94,7 @@ UnshortenURL <- function(l) {
   require(RCurl)
   EnsurePackage("XML")
   
-  cat(l)
+#   cat(l)
   
   # if blank, return blanks
   if(is.na(l) || l == "") return(c("", "", ""))
@@ -103,10 +103,10 @@ UnshortenURL <- function(l) {
   urls <- data.frame(short=c(), long=c(), title=c())
   tryCatch(load("data/urls.Rda"), 
            error = function(e) {
-             cat("no urls data yet.")
+             cat("no urls data yet. will create new.")
            },
            warning = function(e) {
-             cat("no urls data yet.")
+             cat("no urls data yet. will create new.")
            })
   
   # check whether the url has been parsed before
