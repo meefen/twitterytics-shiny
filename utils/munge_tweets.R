@@ -40,16 +40,13 @@ ExtractUrls <- function(df) {
   df$links <- sub("\\.{3}", "", df$links)
   df$links[nchar(df$links) < 20] <- NA
   
-  # unshorten links, and get titles of links
-  #   df$longlinks <- sapply(df$links, function(l) UnshortenURL(l))
-  #   df$linkTitle <- sapply(df$longlinks, GetTitleOfURL(l))
-### commented out because longurl api is not working right now...
-#   longlinks <- unlist(lapply(df$links, function(l) UnshortenURL2(l)))
-#   while(length(longlinks) != 2 * length(df$links)) {
-#     longlinks <- unlist(lapply(df$links, function(l) UnshortenURL2(l)))
-#   }
-#   df$longlinks <- longlinks[seq(1, length(longlinks), 2)]
-#   df$linkTitle <- longlinks[seq(2, length(longlinks), 2)]
+  # commented out because longurl api is not working right now...
+  longlinks <- unlist(lapply(df$links, function(l) UnshortenURL(l)))
+  while(length(longlinks) != 3 * length(df$links)) {
+    longlinks <- unlist(lapply(df$links, function(l) UnshortenURL(l)))
+  }
+  df$longlinks <- longlinks[seq(1, length(longlinks), 3)]
+  df$linkTitle <- longlinks[seq(2, length(longlinks), 3)]
   
   # get a copy of text without urls for semantic analysis
   df$text_nourl <- sapply(df$text, function(x) TrimUrls(x))

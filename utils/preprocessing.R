@@ -12,6 +12,7 @@ source("utils/social_analysis.R")
 # get tweets
 key <- read.table("settings.txt", header=FALSE)[2, 1]
 df <- GetTweetsFromGoogleDrive(key)
+
 # remove duplicates
 df <- df[!duplicated(df$id_str), ]
 # # only select tweets during conference

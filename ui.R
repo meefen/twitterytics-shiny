@@ -81,8 +81,8 @@ shinyUI(pageWithSidebar(
     conditionalPanel(condition = "input.analytics == 'tweets'",
                      conditionalPanel(condition = "input.rb_tweets == 'urls'",
                                       h4("Top URLs"),
-                                      htmlOutput(outputId = "urls_table"),
-                                      helpText("Note: URLs might not be displayed properly at this moment, because the LongURL api is having trouble unshorting t.co urls.")
+                                      htmlOutput(outputId = "urls_table")
+#                                       helpText("Note: URLs might not be displayed properly at this moment, because the LongURL api is having trouble unshorting t.co urls.")
 #                                       helpText("Note: URLs without a proper (unshortened) title are usually PDFs.")
                      ),
                      conditionalPanel(condition = "input.rb_tweets == 'hashtags'",

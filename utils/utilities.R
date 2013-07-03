@@ -57,31 +57,47 @@ TrimOddChar <- function(x) {
   iconv(x, to = 'UTF-8')
 }
 
-UnshortenURL <- function(l) {
-  # unshorten urls with unshort.me API
+decode_short_url <- function(url, ...) {
+  ## Inspired by: http://goo.gl/Q6mi8
   
-  cat(l)
-  if(is.na(l) || l == "") return("")
+  # PACKAGES #
+  require(RCurl)
+  require(XML)
   
-  EnsurePackage("RCurl")
-  EnsurePackage("RJSONIO")
+  # LOCAL FUNCTIONS #
+  decode <- function(u) {
+    Sys.sleep(0.5)
+    x <- try(getURL(u, header = TRUE, #nobody = TRUE, 
+                     followlocation = FALSE, 
+                     cainfo = system.file("CurlSSL", "cacert.pem", package = "RCurl")),
+             silent=TRUE)
+    if(inherits(x, 'try-error') | length(grep(".*[Ll]ocation: (\\S+).*", x))<1) {
+      return(u)
+    } else {
+      return(gsub('.*[Ll]ocation: (\\S+).*', '\\1', x))
+    }
+  }
   
-  tryCatch({
-    json <- getURL(paste0("http://api.unshort.me/?r=", l, "&t=json"), verbose = TRUE)
-    as.character(fromJSON(json))[1]
-  }, error = function(e) {
-    ""
-  })
+  # MAIN #
+  gc()
+  # return decoded URLs
+  urls <- c(url, ...)
+  l <- vector(mode = "list", length = length(urls))
+  l <- lapply(urls, decode)
+  names(l) <- urls
+  return(l)
 }
 
-UnshortenURL2 <- function(l) {
-  # unshorten urls with longurl.org API
-  # this method is much faster than the other one
+UnshortenURL <- function(l) {
+  
+  EnsurePackage("R.utils")
+  require(RCurl)
+  EnsurePackage("XML")
   
   cat(l)
   
   # if blank, return blanks
-  if(is.na(l) || l == "") return(c("", ""))
+  if(is.na(l) || l == "") return(c("", "", ""))
   
   # load already parsed data
   urls <- data.frame(short=c(), long=c(), title=c())
@@ -95,37 +111,39 @@ UnshortenURL2 <- function(l) {
   
   # check whether the url has been parsed before
   if(l %in% urls$short) {
-    return(urls[urls$short==l, 2:3])
+    return(urls[urls$short==l, ])
   }
   
-  EnsurePackage("RCurl")
-  EnsurePackage("RJSONIO")
+  # if not
+  longurl <- decode_short_url(l)
+#   url <- evalWithTimeout(getURL(longurl), 
+#                          timeout=1.08, cpu=1.08, onTimeout="warning")
+  ## wiredly, http://t.co/cBUmqOOmSB will Gateway timeout,
+  ## even evalWithTimeout could not timeout it. wondering
+  ## whether it was because of Stanford Vister wifi's restriction
+  html <- try(htmlParse(getURL(longurl), encoding = "UTF-8"), silent=TRUE)
+  if(inherits(html, 'try-error')) {
+    count <- 5
+    repeat{
+      longurl <- decode_short_url(longurl)
+      html <- try(htmlParse(getURL(longurl), encoding = "UTF-8"), silent=TRUE)
+      if(count == 0 || !inherits(html, 'try-error')) {
+        break
+      }
+      count <- count-1
+    }
+  }
+  title <- "Unknown (probably a PDF file)"
+  if(!inherits(html, 'try-error')) {
+    # http://stackoverflow.com/a/13730279/1094038
+    title  <- trim(gsub("\n", "", xpathSApply(html,"//title", xmlValue)))
+  }
+  v <- c(l, as.character(longurl), title)
+  urls <- rbind(urls, v)
+  names(urls) <- c("short", "long", "title")
+  save(urls, file="data/urls.Rda")
   
-  tryCatch({
-    json <- getURL(paste0("http://api.longurl.org/v2/expand?format=json&title=1&url=", 
-                          URLencode(l, TRUE)), verbose = TRUE)
-    v <- as.vector(fromJSON(json))
-    urls <- rbind(urls, c(l, v[1], v[2]))
-    names(urls) <- c("short", "long", "title")
-    save(urls, file="data/urls.Rda")
-    return(v)
-  }, error = function(e) {
-    cat("error")
-    return(c("", ""))
-  })
-}
-
-GetTitleOfURL <- function(url) {
-  # get title of a link, with RCurl package
-  
-  if(is.na(url) || url == "") return
-  
-  EnsurePackage("RCurl")
-  html <- getURLContent(url)[[1]]
-  title.idx <- regexec("<title>(.*)</title>", html)
-  if(length(title[[1]]) == 1) title.idx <- regexec("<h1>(.*)</h1>", html)
-  title <- substr(html, title.idx[[1]][2], title.idx[[1]][2] + attr(title.idx[[1]],"match.length")[2] - 1)
-  TrimHTMLBreaks(title)
+  return(v)
 }
 
 CosineSimilarity <- function(va, vb) {
