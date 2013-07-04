@@ -1,6 +1,7 @@
 .Rproj.user
 .Rhistory
 .RData
+*.log
 # ignore .Rproj file
 *.Rproj
 # ignore .Rda files

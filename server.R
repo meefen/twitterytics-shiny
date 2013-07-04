@@ -1,11 +1,16 @@
+# Shiny server
+
 library(shiny)
 
+## load utility files
 source("utils/utilities.R", local=TRUE)
 
+## load packages
 EnsurePackage("ggplot2") # for ggplot, qplot
 EnsurePackage("gdata") # for trim
 EnsurePackage("xts") # for time series analysis
 EnsurePackage("reshape") # for melt
+EnsurePackage("plyr") # for ddply
 
 source("utils/get_tweets.R")
 source("utils/munge_tweets.R")
@@ -20,12 +25,12 @@ load("data/communities.Rda")
 load("data/corpus.Rda")
 load("data/urls.Rda")
 
-## read settings
-settings <- read.table("settings.txt", header=FALSE)
-timezone <- settings[3, 1]
+## read timezone settings
+timezone <- as.character(read.table("settings.txt", header=FALSE)[3, 1])
 
-## function for preparing ngram table
 ngramTable <- function(query, user) {
+  ## function for preparing ngram table
+  
   table <- data.frame(date=df$created_at, text=df$text, 
                       from_user=df$from_user, stringsAsFactors=FALSE)
   
@@ -62,15 +67,18 @@ ngramTable <- function(query, user) {
 
 shinyServer(function(input, output) {
   
-  # View count
-  viewCount <- as.numeric(read.table("hits.txt", header=FALSE)[1, 1]) + 1
-  write(viewCount, file = "hits.txt")
+  ### 0. General information
   
-  #Output for hits
+  # View count
+  hits <- as.numeric(read.table("hits.txt", header=FALSE)[1, 1]) + 1
+  write(hits, file = "hits.txt")
+  
+  # output for hits
   output$hits <- renderText({
-    paste0("App Hits: ", viewCount)
+    paste0("App Hits: ", hits)
   })
   
+  # output of summary
   output$summary <- renderText({
     paste0("So far, ", length(unique(df$from_user)),
           " attendees have contributed ", nrow(df), 
@@ -83,11 +91,10 @@ shinyServer(function(input, output) {
   ## timeline
   output$tweets_timeline <- renderPlot({
     
-    # Depending on the place of venue, change the timezone
-    dates <- format(as.POSIXct(df$created_at, tz="GMT"), tz=timezone)
-    
     # trim dates to only keep date
-    date.df <- data.frame(date=as.POSIXct(strftime(dates, "%Y-%m-%d")))
+    date.df <- data.frame(date=as.POSIXct(strftime(df$created_at, "%Y-%m-%d")))
+    # by hour:
+    # date.df <- data.frame(date=as.POSIXct(strftime(df$created_at, "%Y-%m-%d %H:00:00")))
     summary <- ddply(date.df, .(date), summarise, freq=length(date))
     p <- ggplot(summary, aes(x=date, y=freq)) + geom_line() + geom_point()
     print(p)
@@ -97,71 +104,57 @@ shinyServer(function(input, output) {
   output$numControls <- renderUI({
     if(input$rb_tweets == "urls") {
       countLinks <- getUrls()
-      sliderInput("top_num", "", min=0, max=min(100, nrow(countLinks)), value=20, format = "#,##0")
+      sliderInput("top_num", "", min=0, max=min(100, nrow(countLinks)), 
+                  value=20, format = "#,##0")
     } else if(input$rb_tweets == "hashtags") {
       hashtags <- getHashtags()
-      sliderInput("top_num", "", min=0, max=min(100, length(hashtags)), value=20, format = "#,##0")
+      sliderInput("top_num", "", min=0, max=min(100, length(hashtags)), 
+                  value=20, format = "#,##0")
     }
   })
   
   ## urls
-  getUrls <- reactive({
+  getUrls <- function(){
     countLinks <- GetTweetCountTable(df, "links")
     names(countLinks)[1] <- "url"
     
     countLinks$count <- as.integer(countLinks$count)
     countLinks$url <- as.character(countLinks$url)
     return(countLinks)
-  })
+  }
   # output table
   output$urls_table <- renderText({
     countLinks <- getUrls()
     countLinks.top <- head(countLinks, input$top_num)
     
-    #### TODO: debug the following part online ###
-    load("data/urls.Rda")
     # find longurl and title for each short url
     fullInfo <- data.frame(t(sapply(countLinks.top$url, function(x) {
-      v <- as.vector(unlist(urls[which(urls$short == x), ])) # it might happen that no result
+      v <- as.vector(unlist(urls[which(urls$short == x), ]))
       if(length(v) == 0) return(rep(x, 3))
       return(v)
-      # is found in urls (don't know why), so following code should take care of it
     })), stringsAsFactors=FALSE)
     names(fullInfo)[1] <- "url"
     
     # combine results of full info with count, by shorturl
-    EnsurePackage("plyr")
     finalLinks <- join(countLinks.top, fullInfo, by="url")
-    for(i in 1:nrow(finalLinks)) { ## deal with nonfound links
-      if(is.na(finalLinks[i, 3]) || finalLinks[i, 3] == "") { ## nonfound
-        finalLinks[i, 3] <- finalLinks[i, 1] ## not sure whether this will work
-        finalLinks[i, 4] <- finalLinks[i, 1]
-      }
-    }
-    
-    #     ## or try the following
-    #     finalLinks <- apply(finalLinks, 1, function(v) {
-    #       if(v[2] == "") {
-    #         c(rep(v[1], 3))
-    #       } else {
-    #         v
-    #       }
-    #     })
     
     df_rows <- apply(finalLinks, 1, link_row_html2)
     collapse_cells <- paste0(df_rows, collapse='')
-    full_table <- paste0('<table border="1"><TR><TH align="left">URLs</TH><TH align="left">Count</TH></TR>', collapse_cells, '</table>')
+    full_table <- paste0('<table border="1"><TR><TH align="left">URLs</TH>
+                         <TH align="left">Count</TH></TR>', 
+                         collapse_cells, '</table>')
     
     return(full_table)
   })
   
   ## hashtags
   # reactive
-  getHashtags <- reactive({
-    hashtags <- as.vector(unlist(sapply(df$text, function(t) str_extract_all(t, "#\\S+"))))
+  getHashtags <- function(){
+    hashtags <- as.vector(unlist(sapply(df$text, function(t) 
+      str_extract_all(t, "#\\S+"))))
     hashtags <- tolower(gsub("(?![#_])[[:punct:]]", "", hashtags, perl=TRUE))
     gsub("â|\u0080|\u009d|¦", "", hashtags, perl=TRUE)
-  })
+  }
   # output table
   output$hashtags_table <- renderText({
     hashtags <- getHashtags()
@@ -175,7 +168,9 @@ shinyServer(function(input, output) {
     
     df_rows <- apply(counts.sub, 1, hashtag_row_html)
     collapse_cells <- paste0(df_rows, collapse='')
-    full_table <- paste0('<table border="1"><TR><TH align="left">Hashtags</TH><TH align="left">Count</TH></TR>', collapse_cells, '</table>')
+    full_table <- paste0('<table border="1"><TR><TH align="left">Hashtags</TH>
+                         <TH align="left">Count</TH></TR>', 
+                         collapse_cells, '</table>')
     
     return(full_table)
   })
@@ -193,14 +188,18 @@ shinyServer(function(input, output) {
   output$happy_tweets <- renderText({
     df_rows <- apply(head(sentiments, input$sentiments_num), 1, tweet_row_html)
     collapse_cells <- paste0(df_rows, collapse='')
-    full_table <- paste0('<table border="1"><TR><TH align="left">Score</TH><TH align="left">Tweet</TH><TH align="left">User</TH></TR>', collapse_cells, '</table>')
+    full_table <- paste0('<table border="1"><TR><TH align="left">Score</TH>
+                         <TH align="left">Tweet</TH><TH align="left">User</TH></TR>', 
+                         collapse_cells, '</table>')
     return(full_table)
   })
   # most saddest tweets
   output$sad_tweets <- renderText({
     df_rows <- apply(tail(sentiments, input$sentiments_num), 1, tweet_row_html)
     collapse_cells <- paste0(df_rows, collapse='')
-    full_table <- paste0('<table border="1"><TR><TH align="left">Score</TH><TH align="left">Tweet</TH><TH align="left">User</TH></TR>', collapse_cells, '</table>')
+    full_table <- paste0('<table border="1"><TR><TH align="left">Score</TH>
+                         <TH align="left">Tweet</TH><TH align="left">User</TH></TR>', 
+                         collapse_cells, '</table>')
     return(full_table)
   })
   
@@ -249,14 +248,20 @@ shinyServer(function(input, output) {
   output$search_table <- renderText({
     table <- filterTweets()
     
-    df_rows <- apply(table[table$score > 0, c("date", "text", "from_user", "score")], 1, search_row_html)
+    df_rows <- apply(table[table$score > 0, c("date", "text", "from_user", "score")], 
+                     1, search_row_html)
     collapse_cells <- paste0(df_rows, collapse='')
     
     if(max(table$score == 0.01)) { ## only filter by user
-      full_table <- paste0('<table border="1"><TR><TH align="left">Date</TH><TH align="left">User</TH><TH align="left">Tweet</TH></TR>', collapse_cells, '</table>')
+      full_table <- paste0('<table border="1"><TR><TH align="left">Date</TH>
+                           <TH align="left">User</TH><TH align="left">Tweet</TH></TR>', 
+                           collapse_cells, '</table>')
       return(full_table)
     } else {
-      full_table <- paste0('<table border="1"><TR><TH align="left">Hits</TH><TH align="left">Date</TH><TH align="left">User</TH><TH align="left">Tweet</TH></TR>', collapse_cells, '</table>')
+      full_table <- paste0('<table border="1"><TR><TH align="left">Hits</TH>
+                           <TH align="left">Date</TH><TH align="left">User</TH>
+                           <TH align="left">Tweet</TH></TR>', 
+                           collapse_cells, '</table>')
       return(full_table)
     }
   })
@@ -280,14 +285,16 @@ shinyServer(function(input, output) {
     counts$retweeted_by <- as.integer(counts$retweeted_by)
     counts$replied_to <- as.integer(counts$replied_to)
     
-    counts <- counts[with(counts, order(-tweets, -replied_to, -retweeted_by, -rt_ratio)), ]
+    counts <- counts[with(counts, order(-tweets, -replied_to, 
+                                        -retweeted_by, -rt_ratio)), ]
     row.names(counts) <- NULL
     counts
   })
   # render slider UI based on # of tweeters
   output$leaderSlider <- renderUI({
     counts <- countsTable()
-    sliderInput("leaderCount", "", min=0, max=min(500,nrow(counts)), value=20, format = "#,##0")
+    sliderInput("leaderCount", "", min=0, max=min(500,nrow(counts)), 
+                value=20, format = "#,##0")
   })
   # table
   output$counts_ppl <- renderText({
@@ -295,7 +302,12 @@ shinyServer(function(input, output) {
     
     df_rows <- apply(head(counts, input$leaderCount), 1, leader_row_html)
     collapse_cells <- paste0(df_rows, collapse='')
-    full_table <- paste0('<table border="1"><TR><TH align="left">Tweeter</TH><TH align="left">Tweets</TH><TH align="left">Received Replies</TH><TH align="left">Be Retweeted</TH><TH align="left">Retweet Ratio</TH></TR>', collapse_cells, '</table>')
+    full_table <- paste0('<table border="1"><TR><TH align="left">Tweeter</TH>
+                         <TH align="left">Tweets</TH>
+                         <TH align="left">Received Replies</TH>
+                         <TH align="left">Be Retweeted</TH>
+                         <TH align="left">Retweet Ratio</TH></TR>', 
+                         collapse_cells, '</table>')
     return(full_table)
   })
   # plot

@@ -10,8 +10,10 @@ source("utils/semantic_analysis.R")
 source("utils/social_analysis.R")
 
 # get tweets
-key <- read.table("settings.txt", header=FALSE)[2, 1]
-df <- GetTweetsFromGoogleDrive(key)
+settings <- read.table("settings.txt", header=FALSE)
+key <- settings[2, 1]
+timezone <- settings[3, 1]
+df <- GetTweetsFromGoogleDrive(key, tz=timezone)
 
 # remove duplicates
 df <- df[!duplicated(df$id_str), ]
@@ -20,19 +22,8 @@ df <- df[!duplicated(df$id_str), ]
 # df <- df[(df$created_at > start), ]
 df <- PreprocessTweets(df)
 
-# wordcloud
+# create corpus
 corpus <- ConstructCorpus(df$text_nourl, removeTags=TRUE, removeUsers=TRUE)
-# png('data/cloud.png')
-# cloud <- MakeWordCloud(corpus)
-# dev.off()
-
-# options(DropboxKey = "a0d223msqt3gpba")
-# options(DropboxSecret = "bqa4tzf8qidx9lt")
-# library(rDrop)
-# dropbox_credentials <- dropbox_auth("a0d223msqt3gpba", "bqa4tzf8qidx9lt")
-# save(dropbox_credentials, file="~/my_dropbox_credentials.rdata")
-# load('/path/to/my_dropbox_credentials.rdata')
-# dropbox_acc_info(dropbox_credentials)
 
 # sentiments
 sentiments <- ScoreSentiment(df$text_nourl, .progress="text")
