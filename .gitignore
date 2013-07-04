@@ -1,0 +1,8 @@
+.Rproj.user
+.Rhistory
+.RData
+# ignore .Rproj file
+*.Rproj
+# ignore .Rda files
+data/*.Rda
+data/*.csv
