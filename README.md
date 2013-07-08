@@ -1,6 +1,8 @@
 Twitterytics-Shiny
 ========================
 
+Demo: [#LASI13](http://glimmer.rstudio.com/bodong/lasi13/)
+
 ## Steps to deploy a Twitterytics-Shiny app
 
 1. Register an account at [RStudio's Shiny server](https://rstudio.wufoo.com/forms/shiny-server-beta-program/) (it usually take a few days for them to setup), or [install a Shiny server on your own](https://github.com/rstudio/shiny-server)
